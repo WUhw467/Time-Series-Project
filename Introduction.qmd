@@ -1,0 +1,28 @@
+---
+title: "Introduction"
+author: "Hengxin Wu"
+editor: visual
+---
+
+# World Fertility
+
+In 2022, The population of elderly people in South Korea over the age of 65 has exceeded 9 million, accelerating the country's entry into a super-aged society. Surpassing the 9 million mark for the first time, with a proportion of 17.5% of the total population. The National Statistical Office predicts that the proportion of elderly people in South Korea will reach 20.6% in 2025, entering a super-aged society. Korea is not the only country which face this serious issue. Japan, England, US also have this problem.
+
+![young_old](figures/young_old.jpeg)
+
+Two demographic factors are likely contributing to population aging: increased lifespan and decreased fertility. Of these two factors, decreased fertility is currently the main cause of population aging globally. Fertility is a critical aspect of population growth and has a significant impact on the development and stability of societies across the world. It refers to the ability of a woman to conceive and bear children. The fertility rate, which is defined as the number of live births per woman, is a key indicator of population growth.
+
+The world fertility rate has undergone major changes in the last few decades and is influenced by various demographic, economic, cultural, and political factors. This project with analyze how the global fertility rate is changing and how these factors are affecting the fertility rate. Understanding these factors and their impact on fertility is important for the formulation of population policies, the development of health services, and the planning of social welfare programs.
+
+## Questions
+
+-   What is the global fertility rate and how has it changed over time?
+-   How does fertility rate vary among different regions of the world?
+-   What factors contribute to changes in fertility rate?
+-   How does fertility rate impact population growth?
+-   How does fertility rate relate to economic development?
+-   How does education level affect fertility rate?
+-   What role does access to family planning play in fertility rate?
+-   What is the relationship between fertility rate and women's empowerment?
+-   How does fertility rate impact the age structure of a population?
+-   What potential consequences can result from changes in fertility rate, both positive and negative?

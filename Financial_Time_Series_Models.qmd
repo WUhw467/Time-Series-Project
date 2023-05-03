@@ -1,0 +1,257 @@
+---
+title: "Financial Time Series Models"
+editor: visual
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+library(gridExtra)
+library(fGarch)
+```
+
+# ARCH & GARCH
+
+Since this project is trying to find out the changes of the global birth, so I choose Johnson & Johnson returns to build the ARCH and GARCH model.Johnson & Johnson is a well-established and respected company with a strong presence in the baby product market, and its brands like Johnson's Baby are well-known and widely used. I think the changes of the global birth rate may affect the Johnson & Johnson returns.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+JNJ <- read_csv('./data/JNJ.csv')
+JNJ_xts <- xts(JNJ[, -1], order.by = as.Date(JNJ$Date))
+```
+
+## Volatility Plot
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+JNJ <- diff(log(JNJ_xts$Close))[-1] #returns
+autoplot(JNJ)
+```
+
+Volatility plot is a graph that displays the estimated volatility of the model over time. This plot shows how the conditional variance changes over time and can be used to assess whether the model captures the dynamics of the data adequately. According to the plot, we can see that there’s obvious volatility in 2002, 2008.
+
+## ACF Plot and ADF test
+Then we can use ACF plot and ADF test to check the stationarity of the return.
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggAcf(JNJ)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggPacf(JNJ)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+adf.test(JNJ)
+```
+
+According to the ACF plot, there is a clear evidence that the JNJ return is stationary. According to the ADF test, the p-value is 0.01 which is less than 0.05, so we can reject H0 which means the data is stationary.
+
+Now, let's look at the ACF of absolute values of the returns and squared values
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggAcf(abs(JNJ),40)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggAcf(JNJ^2,40)
+```
+
+We can see clear correlation in both plots. This correlation is comming from the correlation in conditional variation.
+
+
+## Model Fitting
+
+To build a ARIMA  + GARCH Model, we need to fit the ARIMA model first and fit a GARCH model for the residual.
+
+### ArchTest
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(FinTS)
+ArchTest(JNJ, lags=1, demean=TRUE)
+```
+
+Because the p-value is < 0.05, we reject the null hypothesis and conclude the presence of ARCH(1) effects.
+
+### Fitting an ARIMA model
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggAcf(JNJ,40)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggPacf(JNJ,40)
+```
+
+According to the ACF and PACF, the p values can be 1,2,4 and the q values can be 1,2,4.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ARIMA.c=function(p1,p2,q1,q2,data){
+temp=c()
+d=1
+i=1
+temp= data.frame()
+ls=matrix(rep(NA,6*80),nrow=80)
+
+
+for (p in p1:p2)#
+{
+  for(q in q1:q2)#
+  {
+    for(d in 0:2)#
+    {
+      
+      if(p+d+q<=9)
+      {
+        
+        model<- Arima(data,order=c(p,d,q))
+        ls[i,]= c(p,d,q,model$aic,model$bic,model$aicc)
+        i=i+1
+  
+        
+      }
+      
+    }
+  }
+}
+
+
+temp= as.data.frame(ls)
+names(temp)= c("p","d","q","AIC","BIC","AICc")
+
+temp
+}
+output <- ARIMA.c(0,4,0,4,data=log(JNJ_xts$Close))
+output
+```
+
+Model with Minimum AIC
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+output[which.min(output$AIC),] #3,0,4
+```
+
+Model with Minimum BIC
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+output[which.min(output$BIC),] #1,1,1
+```
+
+Model with Minimum AICc
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+output[which.min(output$AICc),] #3,0,4
+```
+
+Now, using auto.arima.
+```{r}
+auto.arima(log(JNJ_xts$Close))
+```
+
+The result from auto.arima is a little bit different than the output we got by our code. I will choose the result from auto.arima which is ARIMA(3,1,4) because it has a lower AIC.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+data=log(JNJ_xts$Close)
+sarima(data, 3,1,4) #has lower AIC
+```
+
+### Fit the GARCH model
+First fit the ARIMA model and fitting a GARCH model to the residuals of the ARIMA model.
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+arima.fit<-Arima(data,order=c(3,1,4),include.drift = TRUE)
+arima.res<-arima.fit$residuals
+
+acf(arima.res)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+acf(arima.res^2) #clear correlation 1,2,3,4,5,6,7
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+pacf(arima.res^2) #1,2,3,4,5,6,7
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+model <- list() ## set counter
+cc <- 1
+for (p in 1:7) {
+  for (q in 1:7) {
+  
+model[[cc]] <- garch(arima.res,order=c(q,p),trace=F)
+cc <- cc + 1
+}
+} 
+
+## get AIC values for model evaluation
+GARCH_AIC <- sapply(model, AIC) ## model with lowest AIC is the best
+which(GARCH_AIC == min(GARCH_AIC))
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+model[[which(GARCH_AIC == min(GARCH_AIC))]]
+```
+
+The best model is GARCH(1,1)
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+summary(garchFit(~garch(1,1), arima.res,trace = F)) 
+```
+
+According to the summary, we can see that alpha1 and beta1 are all significant.
+
+### Final Model
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+summary(arima.fit<-Arima(data,order=c(3,1,4),include.drift = TRUE))
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+summary(final.fit <- garchFit(~garch(1,1), arima.res,trace = F)) 
+```
+The final model is a GARCH(1,1) model, which estimates the conditional variance of the time series based on its past values and past squared error terms.
+
+According to the Box-Ljung test results, the residuals of the model do not exhibit significant autocorrelation up to lag 20, which suggests that the model adequately captures the temporal dependencies in the data. However, there is some evidence of significant autocorrelation at lag 15, which may indicate some residual structure that the model has not captured. It may be worth considering alternative models or model extensions to address this issue.
+
+# Formula
+$x_t$ = 0.1969$x_{t-1}$ + 0.0738$x_{t-2}$ - 0.4641$x_{t-3}$ - 0.2686$z_{t-1}$ - 0.0935$z_{t-2}$ + 0.4673$z_{t-3}$ - 0.0665$z_{t-4}$ + 0.0002 + $z_t$
+
+$z_t$ = $σ_t$$ϵ_t$
+
+$σ_t$ = 3.631e-06 + 1.025e-01$z_{t-1}$ + 8.701e-01$σ_{t-1}$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

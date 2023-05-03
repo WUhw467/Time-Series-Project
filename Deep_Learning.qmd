@@ -1,0 +1,66 @@
+---
+title: "Deep Learning"
+editor: visual
+---
+
+# Compare with ARMA/ARIMA
+
+## Monthly number of birth
+
+<IFrame src="DL_ARIMA1.html" width="100%" height="400 px">
+
+</IFrame>
+
+Based on the RMSE values, we can see that:
+
+The simple RNN model without regularization has the lowest test RMSE of 0.068, indicating that it performs the best among all the models.
+
+All models except for the simple RNN model without regularization have a higher test RMSE compared to their respective train RMSE, indicating overfitting of the models to the training data.
+
+Among the regularized models, the LSTM model with regularization has the lowest test RMSE of 0.075, indicating that regularization helps in reducing overfitting and improving generalization performance.
+
+Among the non-regularized models, the GRU model has the lowest train and test RMSE, indicating that it performs better than the non-regularized LSTM and simple RNN models.
+
+Overall, the regularized models perform better than the non-regularized models in terms of generalization performance. Among the regularized models, the LSTM model with regularization performs the best with the lowest test RMSE.
+
+The number of steps the model can predict into the future depends on the length of the input sequence and the step size used during training. My step size is 12, and my input sequence length is,50, then the model can predict 4 steps into the future. However, the accuracy of the predictions may decrease as my predict further into the future. 
+
+By comparing the RMSE, we can see that the deep learning model is much better than the ARIMA model. A lower RMSE for a deep learning model compared to an ARIMA model suggests that the deep learning model may be a better fit for the data. But my data is not large enough, so it is still very hard to say which one is better.
+
+## Fertility rate
+
+<IFrame src="DL_ARIMA2.html" width="100%" height="400 px">
+
+</IFrame>
+
+Based on the RMSE values, it appears that the LSTM without regularization model has the lowest test RMSE, indicating that it is performing the best on the test data. The simple RNN without regularization model also has a relatively low test RMSE, but its train RMSE is much lower than its test RMSE, suggesting that it may be overfitting the training data.
+
+The models with regularization (simple RNN with regularization, LSTM with regularization, and GRU with regularization) have higher RMSE values than their counterparts without regularization, indicating that the regularization is not improving their performance in this case.
+
+The GRU models have the highest RMSE values overall, suggesting that they are performing the worst among the six models.
+
+It's important to note that the RMSE values alone may not be sufficient to fully evaluate the performance of these models, and other metrics and analyses may be needed to make a more comprehensive comparison.
+
+The RMSE value for these deep learning models are much smaller than the ARIMA model, but with the same reason as the monthly number of birth, it is still hard to say which one is better.
+
+# ARIMAX
+
+<IFrame src="DL_ARIMAX.html" width="100%" height="400 px">
+
+</IFrame>
+
+Based on the given RMSE values, the LSTM models (with and without regularization) outperform the other models in terms of test performance, with the lowest test RMSE values of 0.301 and 0.310, respectively. The simple RNN models also have fairly similar test performance, with the regularized version slightly outperforming the non-regularized version.
+
+The GRU models have higher test RMSE values than the other models, indicating they may not be the best choice for this particular dataset.
+
+It's important to note that RMSE alone does not provide a complete picture of model performance, and other metrics such as mean absolute error (MAE), coefficient of determination (R-squared), and visual inspection of the model's predictions can also be informative. Additionally, it's possible that fine-tuning hyperparameters or using different regularization techniques could improve the performance of these models.
+
+The RMSE error is much smaller for deep learning model. There could be several reasons for the significant difference in RMSE between my deep learning model and the ARIMAX model.
+
+Firstly, it is possible that the ARIMAX model may not be well-suited for my particular dataset, while the deep learning model may be better equipped to capture the underlying patterns and relationships in the data. ARIMAX models tend to work best for datasets with clear linear or seasonal trends and may struggle with more complex nonlinear relationships.
+
+Secondly, it is possible that my deep learning model may be overfitting to the training data, resulting in a lower RMSE on the training set but a higher RMSE on the test set. However, if the deep learning model is performing well on the test set as well, this is less likely to be the case.
+
+Finally, it is important to note that the RMSE metric is just one way of assessing the performance of a model. The ARIMAX model may perform better than the deep learning model in other aspects, such as interpretability or computational efficiency. Ultimately, the choice of model will depend on the specific goals of my analysis and the constraints of my project.
+
+

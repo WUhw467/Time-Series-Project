@@ -1,0 +1,162 @@
+---
+title: "Data Sources"
+author: "Hengxin Wu"
+editor: visual
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+```
+
+# The World Bank
+
+The World Bank is a website which is designed to make World Bank data easy to find, download, and use. All of the data found here can be used free of charge with minimal restrictions. All the datasets I am showing right now are coming from this website. This is the link to The World Bank: <https://data.worldbank.org/about/get-started> ![The World Bank](figures/logo.png)
+
+## Life expectancy at birth, total (years)
+
+Life expectancy at birth is the number of years a newborn would live if the patterns of mortality at the time of birth remain the same throughout his life. The dataset I am using has more than 250 countries' life expectancy at birth from 1960 to 2020. <https://data.worldbank.org/indicator/SP.DYN.LE00.IN>
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+life <- read_csv('./data/API_SP.DYN.LE00.IN_DS2_en_csv_v2_4770434.csv', skip=4)
+life <- melt(life, na.rm=TRUE, id=c('Country Name','Country Code','Indicator Name','Indicator Code'), variable.name = 'Year')
+as.double.factor <- function(x) {as.numeric(levels(x))[x]}
+life$Year <- as.double.factor(life$Year)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+#| label: fig-life_expectancy
+#| fig-cap: Life Expectancy at birth.
+#| warning: false
+partial_country <- life[life$`Country Name` %in% c('China','Australia', 'India','United States'),]
+life_plot <- ggplot(data=partial_country, aes(x=Year,y=value,colour=`Country Name`))+
+  geom_line() +
+  labs(
+    title = "Patial Countries' Life Expectancy at birth",
+    subtitle = "From 1960-2020",
+    x = "Year",
+    y = "Ages")+
+    guides(colour=guide_legend(title="Country Name")) 
+ggplotly(life_plot)
+```
+
+Since the dataset contains more than 250 countries' life expectancy, it is impossible to visualize all the countries' distribution. The plot shows the life expectancy for the Australia, China, India and United States. According to the plot, people can see that the life expectancy are continuously increasing. Compared to the data from 1960, there has been a significant increase in life expectancy in China and India in 2020. Please go to the Data Visualization Tab to see the visualization for all the countries.
+
+## Fertility Rate
+
+The fertility rate is the number of children a woman would give birth to during her childbearing years. This dataset contain most of countris' fertility rate from 1960 to 2020. Same reason as the Life expectancy, the plot only shows the few countries' data. <https://data.worldbank.org/indicator/SP.DYN.TFRT.IN?end=2020&start=2020&view=map&year=1974>
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+fertility <- read_csv('./data/API_SP.DYN.TFRT.IN_DS2_en_csv_v2_4770506.csv', skip=4)
+fertility <- melt(fertility, na.rm=TRUE, id=c('Country Name','Country Code','Indicator Name','Indicator Code'), variable.name = 'Year')
+as.double.factor <- function(x) {as.numeric(levels(x))[x]}
+fertility$Year <- as.double.factor(fertility$Year)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+#| label: fig-Fertility
+#| fig-cap: Fertility
+#| warning: false
+partial_fertility <- fertility[fertility$`Country Name` %in% c('China','Australia', 'India','United States'),]
+fertility_plot <- ggplot(data=partial_fertility, aes(x=Year,y=value,colour=`Country Name`))+
+  geom_line() +
+  labs(
+    title = "Patial Countries' fertility",
+    subtitle = "From 1960-2020",
+    x = "Year",
+    y = "Rate")+
+    guides(colour=guide_legend(title="Country Name")) 
+ggplotly(fertility_plot)
+```
+
+## Population
+
+The population dataset contains total number of residents regardless of legal status or citizenship (midyear estimates). The dataset contains most of countries' population from 1960 to 2020. Same reason as the Life eexpectancy, the plot only shows the few countries' data. <https://data.worldbank.org/indicator/SP.POP.TOTL>
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+population <- read_csv('./data/API_SP.POP.TOTL_DS2_en_csv_v2_4770387.csv',skip=4)
+population <- melt(population, na.rm=TRUE, id=c('Country Name','Country Code','Indicator Name','Indicator Code'), variable.name = 'Year')
+as.double.factor <- function(x) {as.numeric(levels(x))[x]}
+population$Year <- as.double.factor(population$Year)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+#| label: fig-population
+#| fig-cap: population
+#| warning: false
+partial_population <- population[population$`Country Name` %in% c('China','Australia', 'India','United States'),]
+population_plot <- ggplot(data=partial_population, aes(x=Year,y=value,colour=`Country Name`))+
+  geom_line() +
+  labs(
+    title = "Patial Countries' population",
+    subtitle = "From 1960-2020",
+    x = "Year",
+    y = "number")+
+    guides(colour=guide_legend(title="Country Name")) 
+ggplotly(population_plot)
+```
+
+## Extra Data From Thw World Bank
+
+There are some other data downloading from the Word Bank, please go to EDA and Data Visualization tab to check there distribution and analysis
+
+# Data World
+
+data.world is a social network for data people, where they can find, use, and share data, collaborate on data projects, and discover and join communities of like-minded individuals. It is a cloud-based platform that provides a central location for people to find and use data, as well as to connect and collaborate with other data enthusiasts, whether they are individuals, businesses, or organizations. The platform offers a variety of tools and features, such as data exploration, visualization, collaboration, and sharing, to make it easy for people to work with data and gain insights from it.
+
+## US Daily Number of Births
+
+Data World provides the us daily births from 1994 to 2014. People can download the csv files from this website: <https://data.world/fivethirtyeight/births/workspace/file?filename=US_births_2000-2014_SSA.csv>
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+us_daily_birth_1 <- read_csv('./data/US_births_1994-2003_CDC_NCHS.csv')
+us_daily_birth_2 <- read_csv('./data/US_births_2000-2014_SSA.csv')
+us_daily_birth_1 <- us_daily_birth_1[1:2191,]
+us_daily_birth <- rbind(us_daily_birth_1, us_daily_birth_2)
+us_daily_birth$Date <- as.Date(paste(us_daily_birth$year, us_daily_birth$month, us_daily_birth$date_of_month, sep = "-"))
+us_daily_birth <- data_frame(Date=us_daily_birth$Date,Births=us_daily_birth$births)
+us_daily_birth_ts <- xts(us_daily_birth$Births, order.by = us_daily_birth$Date)
+```
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+ggplot(us_daily_birth, aes(x=Date, y=Births))+
+  geom_line() +
+  labs(
+    title = "US Daily Number of Births",
+    subtitle = "From 1994-2014",
+    x = "Date",
+    y = "Number of Birth")
+```
+
+The plot shows that there is a very clear trend and seasonal pattern in the data.
+
+# Kaggle
+
+Kaggle is a popular online community platform for data scientists and machine learning practitioners. It hosts various data science competitions, where individuals or teams compete to create the best machine learning models to solve a given problem. Kaggle also offers a platform for data scientists to share datasets, collaborate with others, and showcase their work. In addition, Kaggle provides a wide range of resources and tools for learning data science, including tutorials, courses, and a data science blog. Kaggle was founded in 2010 and acquired by Google in 2017.
+
+## USA Key Economic Indicators
+
+This dataset contain various distributions of economic factors from 1994 to 2021. This is the link to dataset:https://www.kaggle.com/datasets/calven22/usa-key-macroeconomic-indicators
+
+# Yahoo Finance
+
+Yahoo Finance is a well-known financial website that offers an extensive collection of financial data, news, and analysis. It encompasses a broad range of financial instruments, including but not limited to stocks, bonds, currencies, and commodities. The website furnishes users with real-time stock quotes, historical price charts, market news, and analysis. Additionally, it offers an array of financial tools and calculators to aid in financial planning and analysis.
+
+## Johnson & Johnson
+Johnson & Johnson is a well-established and respected company with a strong presence in the baby product market, and its brands like Johnson's Baby are well-known and widely used. I think the changes of the global birth rate may affect the Johnson & Johnson returns. The data contain its stock price from 04/15/2002 to 04/14/2023.
+

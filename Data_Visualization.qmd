@@ -1,0 +1,108 @@
+---
+title: "Data Visualization"
+editor: visual
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(flipbookr)
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(reshape2)
+library(htmltools)
+library(shiny)
+```
+
+[click here to go to the Code](https://github.com/WUhw467/Time-Series-Project/blob/main/project.ipynb)
+
+# Number of New Birth
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+birth <- read_csv('./data/UNdata_Export_20230216_185343649.csv')
+birth <- birth[birth$Month != 'Total',]
+birth <- birth[birth$Year != 2021, ]
+birth$date <- as.Date(paste(birth$Year, birth$Month, "01"), format = "%Y %B %d")
+birth_avg <- birth %>%
+  group_by(date) %>%
+  summarize(avg_value = mean(Value))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+birth_plot <- ggplot(birth_avg, aes(x = date, y = avg_value)) +
+  geom_line() +
+  ggtitle("Plot of Average Number of New Birth") +
+  xlab("Year") + ylab("Num of Birth")
+ggplotly(birth_plot)
+```
+
+According to the plot, we can see the average number of new birth are increasing very fast before 1970, then it starts to decrease. After that, there are some flactuations, but no very repaidly increase or decrease. But, after 2022, there is a huge decreasing in the average number of new birth every month. This is may because of the Covid-19 pandemic.
+
+# Global GDP
+
+```{r, results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+tags$div(
+  HTML(includeHTML("./figures/global_gdp.html"))
+)
+```
+
+According to the plot, we can see that the global gdp is increase in these years.
+
+# Life Expectancy
+
+This is the previw of the dashboard of the distribution of the life expectancy for country with region, so people can filter the plot by choosing the country name, regionor sub-region they want to see. [click here to go to the Dashboard](https://public.tableau.com/views/NormalCountry/Dashboard2?:language=en-US&:display_count=n&:origin=viz_share_link)
+
+![Normal Country Life Expectancy](figures/normal_country.png)
+
+This is the previw of the dashboard of the distribution of the life expectancy for country without region, so people can filter the plot by choosing the country name they want to see. [click here to go to the Dashboard](https://public.tableau.com/views/SpecialCountry/SpecialRegionLifeExpectancy?:language=en-US&:display_count=n&:origin=viz_share_link)
+
+![Special Country Life Expectancy](figures/special_country.png)
+
+```{r, results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+tags$div(
+  HTML(includeHTML("./figures/LE_state_average.html"))
+)
+```
+
+According to the plot, we can see that people are living longer and longer.
+
+# Fertility Rate
+
+```{r, results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+tags$div(
+  HTML(includeHTML("./figures/fertility_state.html"))
+)
+```
+
+According to the plot, we can see that the fertility rate is decreasing for the most of the country. One very interesting fact is thatm countries in Africa have the highest fertility, but they also have the lowest gdp. It seems like there is a negative relationship between the development level and fertility rate.
+
+# Population
+
+```{r, results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+tags$div(
+  HTML(includeHTML("./figures/population_state.html"))
+)
+```
+
+According to the plot, we can see the total population are decreasing in the most of the countries.
+
+# Labor force
+
+```{r, results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+tags$div(
+  HTML(includeHTML("./figures/labor_state.html"))
+)
+```
+
+According to the plot, we can see that labor force participation are increasing.

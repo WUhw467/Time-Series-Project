@@ -1,0 +1,697 @@
+---
+title: "ARMA/ARIMA/SARIMA Models"
+editor: visual
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+library(gridExtra)
+```
+
+Now, it's time to create time series models. Since this project's goal is predicting the future fertility rate, this section will create two time series model, one for monthly number birth and one for fertility rate.
+
+From EDA, people can see that except the data from Monthly number of birth, all the annual data are non-stationary. By using detrending method, it is possible to change them to stationary. To build a time series model, it is very important to change the dataset to stationary and then draw ACF and PACF plot to find the p,q,and d.
+
+# ARMA/ARIMA Model
+
+## Monthly Number of Birth
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+birth <- read_csv('./data/UNdata_Export_20230216_185343649.csv')
+birth <- birth[birth$Month != 'Total',]
+birth <- birth[birth$Year != 2021, ]
+birth$date <- as.Date(paste(birth$Year, birth$Month, "01"), format = "%Y %B %d")
+birth_avg <- birth %>%
+  group_by(date) %>%
+  summarize(avg_value = mean(Value))
+ts_data <- ts(birth_avg$avg_value, start = c(1967, 1), end = c(2020, 1), frequency = 12)
+```
+
+### ADF test
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tseries)
+adf.test(ts_data)
+```
+
+According to the ADF test, the p-vlaue is 0.01 which less than 0.05, so the dataset right now is stationary which means we can use it to build a time series model.
+
+### ACF and PACF
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+require(gridExtra)
+plot1<-ggAcf(ts_data, 50, main='ACF Plot')
+plot2<-ggPacf(ts_data, 50, main='PACF Plot')
+grid.arrange(plot1, plot2,ncol=2)
+```
+
+In the ACF plot, the autocorellation for small lags are large and positive and then the autocorrelation starts to slowly decrease as the lags increase, so even the ADF test shows that the dataset is stationary, the differencing still needs to be applied for this data to build the time series model.
+
+### Differencing
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+require(gridExtra)
+plot1<-autoplot(diff(ts_data), main="first difference")
+plot2<-ggAcf(diff(ts_data,1), 20, main='ACF Plot of First Difference')
+plot3<-ggPacf(diff(ts_data,1), 20, main='PACF Plot of First Difference')
+grid.arrange(plot1, plot2, plot3,ncol=3)
+```
+
+According to the plot, p value could be 1,11,12,13, the q value could be 1,2,3,11,12,13,14 and the d is 1. Now, these values can be fitted into a Arima model.
+
+### Find p,d,q
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+d=1
+i=1
+temp= data.frame()
+ls=matrix(rep(NA,6*28),nrow=28) # roughly nrow = 3x4x2
+q_list = c(1,2,3,11,12,13,14)
+p_list = c(1,11,12,13)
+d_list = c(1)
+for (p in p_list)
+{
+  for(q in q_list)
+  {
+    for(d in d_list)
+    {
+      
+      if(p+d+q<=8)
+      {
+        
+        model<- Arima(ts_data,order=c(p,d,q),include.drift=TRUE) 
+        ls[i,]= c(p,d,q,model$aic,model$bic,model$aicc)
+        i=i+1
+        #print(i)
+        
+      }
+      
+    }
+  }
+}
+
+temp= as.data.frame(ls)
+names(temp)= c("p","d","q","AIC","BIC","AICc")
+
+#temp
+knitr::kable(temp)
+```
+
+There are three options. They are (1,1,1), (1,1,2), (1,1,3). By comparing the AIC, BIC and AICc, it is possible to find the best model.
+
+Minimum AIC
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$AIC),] 
+```
+
+Minimum BIC
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$BIC),]
+```
+
+Minimum AICc
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$AICc),]
+```
+
+By comparing the AIC, BIC and AICc, (1,1,2) is the best model.
+
+### Model diagnostic
+
+Only comparing the AIC, BIC and AICc is not enought. Doing model diagnostics can provide a more accurate conclusion.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+model_output <- capture.output(sarima(ts_data, 1,1,1))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+cat(model_output[20:51], model_output[length(model_output)], sep = "\n") 
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+model_output2 <- capture.output(sarima(ts_data, 1,1,2))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+cat(model_output2[69:101], model_output[length(model_output)], sep = "\n") 
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+model_output3 <- capture.output(sarima(ts_data, 1,1,3))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+cat(model_output3[85:118], model_output[length(model_output)], sep = "\n") 
+```
+
+By looking at the significance of the coefficients, ARIMA(1,1,2) is also the best mode. The equation is: \$ y = 25.4618 - 0.9999x\_{t-1} + w\_{t} + 0.8234w\_{t-1} - 0.1148w\_{t-2} + 0.0577w\_{t-3} \$
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+auto.arima(ts_data,seasonal = FALSE)
+```
+
+The result from the auto.arima is different than my choice. I think the reason is that, although, the first order differencing is applied, the model is still not perferctly stationary, so the auto.arima will generate different result.
+
+### Prediction
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+fit1=Arima(ts_data,order=c(1,1,2),include.drift = TRUE)
+myfcast50 <- forecast(fit1, h=50)
+plot(myfcast50)
+```
+
+Now, the best model can be used to do the prediction. This plot shows the predition in next 50 months. The prediction result is very smooth and it shows an increasing trend.
+
+### Benchmark methods
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Split the data into training and test sets
+train <- window(ts_data, end = c(2018, 12))
+test <- window(ts_data, start = c(2019, 1))
+
+fit2=Arima(train,order=c(1,1,2),include.drift = TRUE)
+forecast_arima <- forecast(train, h = length(test))
+
+naive_model <- naive(train, h = length(test))
+snaive_model <- snaive(train, h = length(test))
+rwf_model <- rwf(train, h = length(test))
+meanf_model <- meanf(train, h = length(test))
+
+accuracy_arima <- accuracy(forecast_arima, test)
+accuracy_naive <- accuracy(naive_model, test)
+accuracy_snaive <- accuracy(snaive_model, test)
+accuracy_rwf <- accuracy(rwf_model, test)
+accuracy_meanf <- accuracy(meanf_model, test)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Print accuracy metrics
+cat("ARIMA Model Accuracy:\n")
+print(accuracy_arima)
+
+cat("\nNaive Model Accuracy:\n")
+print(accuracy_naive)
+
+cat("\nSeasonal Naive Model Accuracy:\n")
+print(accuracy_snaive)
+
+cat("\nRandom Walk Model Accuracy:\n")
+print(accuracy_rwf)
+
+cat("\nmeanf Model Accuracy:\n")
+print(accuracy_meanf)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+autoplot(test) +
+  autolayer(forecast(fit2, h=length(test)),
+            series="fit1 in part e", PI=FALSE) +
+  autolayer(meanf(train, h=length(test)),
+            series="Mean.tr", PI=FALSE) +
+  autolayer(naive(train, h=length(test)),
+            series="Naïve.tr", PI=FALSE) +
+  autolayer(rwf(train, drift=TRUE, h=length(test)),
+            series="Drift.tr", PI=FALSE) +
+  ggtitle("World Monthly Number of Birth") +
+  xlab("Time") + ylab("Number of Birth") +
+  guides(colour=guide_legend(title="Forecast"))
+```
+
+According to the table and plot, it is very obvious that the arima model is the best.
+
+## Fertility Rate
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+fertility <- read_csv('./data/API_SP.DYN.TFRT.IN_DS2_en_csv_v2_4770506.csv', skip=4)
+fertility <- melt(fertility, na.rm=TRUE, id=c('Country Name','Country Code','Indicator Name','Indicator Code'), variable.name = 'Year')
+as.double.factor <- function(x) {as.numeric(levels(x))[x]}
+fertility$Year <- as.double.factor(fertility$Year)
+avg_fertility <- fertility %>%
+  group_by(Year) %>%
+  summarize(avg_value = mean(value))
+ts_avg_fertility <- ts(avg_fertility$avg_value,star=decimal_date(as.Date("1960-01-01",format = "%Y-%m-%d")),frequency = 1)
+```
+
+### ADF
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tseries)
+adf.test(ts_avg_fertility)
+```
+
+According to the ADF test, the p-vlaue is 0.9121 which greater than 0.05, so the dataset right now is non-stationary which means it need some differencing.
+
+### ACF and PACF
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+require(gridExtra)
+plot1<-ggAcf(ts_avg_fertility, 50, main='ACF Plot')
+plot2<-ggPacf(ts_avg_fertility, 50, main='PACF Plot')
+grid.arrange(plot1, plot2,ncol=2)
+```
+
+In the ACF plot, the autocorellation for small lags are large and positive and then the autocorrelation starts to slowly decrease as the lags increase, so it is very obvious that it have a strong trend, the differencing needs to be applied for this data to build the time series model.
+
+### Differencing
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+require(gridExtra)
+plot1<-autoplot(diff(ts_avg_fertility), main="first difference")
+plot2<-ggAcf(diff(ts_avg_fertility,1), 20, main='ACF Plot of First Difference')
+plot3<-ggPacf(diff(ts_avg_fertility,1), 20, main='PACF Plot of First Difference')
+grid.arrange(plot1, plot2, plot3,ncol=3)
+```
+
+According to the plot, p value could be 1, the q value could be 1,2,3,5,13 and the d is 1. Now, these values can be fitted into a Arima model.
+
+### Find p,d,q
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+d=1
+i=1
+temp= data.frame()
+ls=matrix(rep(NA,6*10),nrow=10) # roughly nrow = 3x4x2
+q_list = c(1,2,3,5,13)
+p_list = c(1)
+d_list = c(1)
+for (p in p_list)
+{
+  for(q in q_list)
+  {
+    for(d in d_list)
+    {
+      
+      if(p+d+q<=8)
+      {
+        
+        model<- Arima(ts_data,order=c(p,d,q),include.drift=TRUE) 
+        ls[i,]= c(p,d,q,model$aic,model$bic,model$aicc)
+        i=i+1
+        #print(i)
+        
+      }
+      
+    }
+  }
+}
+
+temp= as.data.frame(ls)
+names(temp)= c("p","d","q","AIC","BIC","AICc")
+
+#temp
+knitr::kable(temp)
+```
+
+There are four options. They are (1,1,1), (1,1,2), (1,1,3), (1,1,5). By comparing the AIC, BIC and AICc, it is possible to find the best model.
+
+Minimum AIC
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$AIC),] 
+```
+
+Minimum BIC
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$BIC),]
+```
+
+Minimum AICc
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+temp[which.min(temp$AICc),]
+```
+
+By comparing the AIC, BIC and AICc, (1,1,2) is the best model.
+
+### Model Diagnostic
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+model_output2 <- capture.output(sarima(ts_avg_fertility, 1,1,2))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+cat(model_output2[39:72], model_output[length(model_output)], sep = "\n") 
+```
+
+The equation is: \$ y = -0.0451 - 0.8532x\_{t-1} + w\_{t} - 0.3063w\_{t-1} - 0.1372w\_{t-2} \$
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+auto.arima(ts_avg_fertility,seasonal = FALSE)
+```
+
+The result from the auto.arima is different than my choice. I think this is because the original dataset is too non-stationary.
+
+### Prediction
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+fit3=Arima(ts_avg_fertility,order=c(1,1,2),include.drift = TRUE)
+myfcast50 <- forecast(fit3, h=10)
+plot(myfcast50)
+```
+
+Now, the best model can be used to do the prediction. This plot shows the predition in next 10 years. The prediction result is very smooth and it shows an decreasing trend.
+
+### Benchmark methods
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Split the data into training and test sets
+train <- window(ts_avg_fertility, end = c(2000))
+test <- window(ts_avg_fertility, start = c(2010))
+
+fit2=Arima(train,order=c(1,1,2),include.drift = TRUE)
+forecast_arima <- forecast(train, h = length(test))
+
+naive_model <- naive(train, h = length(test))
+snaive_model <- snaive(train, h = length(test))
+rwf_model <- rwf(train, h = length(test))
+meanf_model <- meanf(train, h = length(test))
+
+accuracy_arima <- accuracy(forecast_arima, test)
+accuracy_naive <- accuracy(naive_model, test)
+accuracy_snaive <- accuracy(snaive_model, test)
+accuracy_rwf <- accuracy(rwf_model, test)
+accuracy_meanf <- accuracy(meanf_model, test)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Print accuracy metrics
+cat("ARIMA Model Accuracy:\n")
+print(accuracy_arima)
+
+cat("\nNaive Model Accuracy:\n")
+print(accuracy_naive)
+
+cat("\nSeasonal Naive Model Accuracy:\n")
+print(accuracy_snaive)
+
+cat("\nRandom Walk Model Accuracy:\n")
+print(accuracy_rwf)
+
+cat("\nmeanf Model Accuracy:\n")
+print(accuracy_meanf)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+autoplot(test) +
+  autolayer(forecast(fit2, h=length(test)),
+            series="fit1 in part e", PI=FALSE) +
+  autolayer(meanf(train, h=length(test)),
+            series="Mean.tr", PI=FALSE) +
+  autolayer(naive(train, h=length(test)),
+            series="Naïve.tr", PI=FALSE) +
+  autolayer(rwf(train, drift=TRUE, h=length(test)),
+            series="Drift.tr", PI=FALSE) +
+  ggtitle("World Fertility rate") +
+  xlab("Time") + ylab("TFertility") +
+  guides(colour=guide_legend(title="Forecast"))
+```
+
+After comparing the accuracy metrics and the predictions of arima model and other benchmark methods, we can see that the arima model is the best one.
+
+# SARIMA
+
+## Monthly Number of Birth
+
+According to the previous analysis, people can see that the monthly number of birth doesn't have a very clear seasonal pattern, so the SARIMA model may not generate a better result. But it is a very good opportunity to see how good SARIMA model perform on a data with no very clear seasonal pattern.
+
+The first we have to do is to draw the plot, ACF plot and PACF plot of the data.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+birth <- read_csv('./data/UNdata_Export_20230216_185343649.csv')
+birth <- birth[birth$Month != 'Total',]
+birth <- birth[birth$Year != 2021, ]
+birth$date <- as.Date(paste(birth$Year, birth$Month, "01"), format = "%Y %B %d")
+birth_avg <- birth %>%
+  group_by(date) %>%
+  summarize(avg_value = mean(Value))
+ts_data <- ts(birth_avg$avg_value, start = c(1967, 1), end = c(2020, 1), frequency = 12)
+```
+
+### Line Plot
+
+```{r}
+autoplot(ts_data)+ggtitle("Monthly Number of Birth") 
+```
+
+### lag plot
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+gglagplot(ts_data, do.lines=FALSE, set.lags = c(12, 24, 36, 48))+ggtitle("Monthly Number of Birth") 
+```
+
+### ACF and PACF
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+require(gridExtra)
+plot1<-ggAcf(ts_data, 50, main='ACF Plot')
+plot2<-ggPacf(ts_data, 50, main='PACF Plot')
+grid.arrange(plot1, plot2,ncol=2)
+```
+
+According to these plots, we can see that. this dataset doesn't have an apparent seasonal pattern and correlation at seasonal lags 12,24,36,48..
+
+### Decomposing
+
+We are using decompose() function to look at the seasonal component.
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+plot(decompose(ts_data,type = c("additive", "multiplicative")))
+```
+
+### Differencing
+
+First ordinary differencing
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+ts_data %>% diff() %>% ggtsdisplay() #first ordinary differencing
+```
+
+first seasonal differencing
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+ts_data %>% diff(lag=12) %>% ggtsdisplay() #first seasonal differencing
+```
+
+Do Both
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+ts_data %>% diff(lag=12) %>% diff() %>% ggtsdisplay() #do both
+```
+
+Since the dataset doesn't have a very clear seasonal patterm, so the first ordinary differencing is enough, the data looks becoming ordinary. Since we want to use SARIMA, so we still apply seasonal differencing and ordinary differencing. The dataset looks stationary.
+
+Here: by ACF Plot: q=0,1,12; Q=1,12 and PACF plot: p=0,1,12; P=1,12
+
+### Fitting Model
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+#write a funtion
+SARIMA.c=function(p1,q1,P1,Q1,data){
+  
+  #K=(p2+1)*(q2+1)*(P2+1)*(Q2+1)
+  
+  temp=c()
+  d=1
+  D=1
+  s=12
+  
+  i=1
+  temp= data.frame()
+  ls=matrix(rep(NA,9*35),nrow=35)
+  
+  
+  for (p in p1)
+  {
+    for(q in q1)
+    {
+      for(P in P1)
+      {
+        for(Q in Q1)
+        {
+          if(p+d+q+P+D+Q<=9)
+          {
+            
+            model<- Arima(data,order=c(p,d,q),seasonal=c(P,D,Q))
+            ls[i,]= c(p,d,q,P,D,Q,model$aic,model$bic,model$aicc)
+            i=i+1
+            #print(i)
+            
+          }
+          
+        }
+      }
+    }
+    
+  }
+  
+  
+  temp= as.data.frame(ls)
+  names(temp)= c("p","d","q","P","D","Q","AIC","BIC","AICc")
+  
+  temp
+  
+}
+p1 <- c(0,1,12)
+q1 <- c(0,1,12)
+P1 <- c(0,1,12)
+Q1 <- c(0,1,12)
+# q=0,1,2,3; Q=1,2 and PACF plot: p=0,1,2; P=1,2, D=1 and d=0,1
+output=SARIMA.c(p1,q1,P1,Q1,data=ts_data)
+#output
+
+knitr::kable(output)
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+output[which.min(output$AIC),] 
+output[which.min(output$BIC),]
+output[which.min(output$AICc),]
+```
+
+The one with lowest AIC, BIC, and AICc is SARIMA(1,1,0)(1,1,1)\[12\]
+
+### Model Diagnostic
+
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+set.seed(123)
+model_output <- capture.output(sarima(ts_data, 1,1,0,1,1,1,12))
+```
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+cat(model_output[28:57], model_output[length(model_output)], sep = "\n") 
+```
+
+### Model Fitting
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+fit <- Arima(ts_data, order=c(1,1,0), seasonal=c(1,1,1))
+summary(fit)
+```
+
+### Forecasting
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+fit %>% forecast(h=36) %>% autoplot() #next 3 years
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+sarima.for(ts_data, 36, 1,1,0,1,1,1,12)
+```
+
+### Compare with Benchmark methods
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+fit <- Arima(ts_data, order=c(1,1,0), seasonal=c(1,1,1))
+autoplot(ts_data) +
+  autolayer(meanf(ts_data, h=36),
+            series="Mean", PI=FALSE) +
+  autolayer(naive(ts_data, h=36),
+            series="Naïve", PI=FALSE) +
+  autolayer(snaive(ts_data, h=36),
+            series="SNaïve", PI=FALSE)+
+  autolayer(rwf(ts_data, h=36, drift=TRUE),
+            series="Drift", PI=FALSE)+
+  autolayer(forecast(fit,36), 
+            series="fit",PI=FALSE) +
+  guides(colour=guide_legend(title="Forecast"))
+
+```
+
+```{r, message=FALSE,echo=FALSE,warning=FALSE}
+f1 <- meanf(ts_data, h=36) 
+meanf_accuracy <- accuracy(f1)
+f2 <- naive(ts_data, h=36) 
+naive_accuracy <- accuracy(f2)
+f3 <- snaive(ts_data, h=36) 
+snaive_accuracy <- accuracy(f3)
+f4 <- rwf(ts_data, h=36) 
+rwf_accuracy <- accuracy(f4)
+
+# create data frame with accuracy results
+accuracy_df <- data.frame(
+  Model = c("Mean Forecast", "Naive", "Seasonal Naive", "Random Walk"),
+  ME = c(meanf_accuracy[1], naive_accuracy[1], snaive_accuracy[1], rwf_accuracy[1]),
+  RMSE = c(meanf_accuracy[2], naive_accuracy[2], snaive_accuracy[2], rwf_accuracy[2]),
+  MAE = c(meanf_accuracy[3], naive_accuracy[3], snaive_accuracy[3], rwf_accuracy[3]),
+  MAPE = c(meanf_accuracy[6], naive_accuracy[6], snaive_accuracy[6], rwf_accuracy[6])
+)
+
+# display table with kable
+knitr::kable(accuracy_df, format = "markdown")
+```
+
+By comparing the these metrics, we can see the Model error measurements are much lower than benchmark methods. Therefore, our fitted model is good.
+
+### Seasonal cross validation using 1 step ahead forecasts and and 12 steps ahead forecasts.
+
+#### 1 step
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+e_meanf <- tsCV(ts_data, meanf, h=1)
+meanf_mse <- sqrt(mean(e_meanf^2, na.rm=TRUE))
+e_naive <- tsCV(ts_data, naive, h=1)
+naive_mse <- sqrt(mean(e_naive^2, na.rm=TRUE))
+e_snaive <- tsCV(ts_data, snaive, h=1)
+snaive_mse <- sqrt(mean(e_snaive^2, na.rm=TRUE))
+e_rwf <- tsCV(ts_data, rwf, h=1)
+rwf_mse <- sqrt(mean(e_rwf^2, na.rm=TRUE))
+fit <- Arima(ts_data, order = c(1,1,0), seasonal = c(1,1,1))
+# Use tsCV function with SARIMA model
+errors <- tsCV(ts_data, forecastfunction = function(x, h) forecast(fit, h = 1))
+sarima_mse <- sqrt(mean(errors^2, na.rm=TRUE))
+
+# create data frame with accuracy results
+mse_df <- data.frame(
+  Model = c("meanf", "naive", "snaive", "rwf","sarima"),
+  MSE = c(meanf_mse,naive_mse,snaive_mse,rwf_mse,sarima_mse)
+)
+
+# display table with kable
+knitr::kable(mse_df, format = "markdown")
+```
+
+#### 12 step
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+e_meanf <- tsCV(ts_data, meanf, h=12)
+meanf_mse <- sqrt(mean(e_meanf^2, na.rm=TRUE))
+e_naive <- tsCV(ts_data, naive, h=12)
+naive_mse <- sqrt(mean(e_naive^2, na.rm=TRUE))
+e_snaive <- tsCV(ts_data, snaive, h=12)
+snaive_mse <- sqrt(mean(e_snaive^2, na.rm=TRUE))
+e_rwf <- tsCV(ts_data, rwf, h=12)
+rwf_mse <- sqrt(mean(e_rwf^2, na.rm=TRUE))
+fit <- Arima(ts_data, order = c(1,1,0), seasonal = c(1,1,1))
+# Use tsCV function with SARIMA model
+errors <- tsCV(ts_data, forecastfunction = function(x, h) forecast(fit, h = 12))
+sarima_mse <- sqrt(mean(errors^2, na.rm=TRUE))
+
+# create data frame with accuracy results
+mse_df <- data.frame(
+  Model = c("meanf", "naive", "snaive", "rwf","sarima"),
+  MSE = c(meanf_mse,naive_mse,snaive_mse,rwf_mse,sarima_mse)
+)
+
+# display table with kable
+knitr::kable(mse_df, format = "markdown")
+```

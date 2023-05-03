@@ -1,0 +1,173 @@
+---
+title: "EDA"
+editor: visual
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+library(gridExtra)
+```
+
+# Monthly Number of Birth
+
+This dataset stores the monthly birth rates of almost all countries in the world from 1967 to 2010. This study will examine the changes in global fertility rates, so the mean value of fertility rates for these countries will be used to represent the world fertility rate. Then, the changes in this mean value will be studied in depth.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+birth <- read_csv('./data/UNdata_Export_20230216_185343649.csv')
+birth <- birth[birth$Month != 'Total',]
+birth <- birth[birth$Year != 2021, ]
+birth$date <- as.Date(paste(birth$Year, birth$Month, "01"), format = "%Y %B %d")
+birth_avg <- birth %>%
+  group_by(date) %>%
+  summarize(avg_value = mean(Value))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Convert the year column to a date object
+# Create a time series object
+ts_data <- ts(birth_avg$avg_value, start = c(1967, 1), end = c(2020, 1), frequency = 12)
+
+# Decompose the time series using an additive model
+decomp_ts <- decompose(ts_data, type = "additive")
+
+# Plot the decomposed time series
+plot(decomp_ts)
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Convert the year column to a date object
+# Create a time series object
+ts_data <- ts(birth_avg$avg_value, start = c(1967, 1), end = c(2020, 1), frequency = 12)
+
+# Decompose the time series using an additive model
+decomp_ts <- decompose(ts_data, type = "multiplicative")
+
+# Plot the decomposed time series
+plot(decomp_ts)
+```
+
+According to the figures, we can see that the 'additive' and 'multiplicative' methods in the decompose() function produces the same plot, it means that there is no clear pattern of seasonality or trend in the data that can be separated using either method. In other words, the original time series may be relatively stationary or may exhibit both additive and multiplicative components that are not easily distinguishable from each other.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Convert the year column to a date object
+# Create a time series object
+gglagplot(ts_data, do.lines=FALSE) + xlab("Lag 1") + ylab("Y1")+ggtitle("Lag plot for Average Number of New Birth")
+```
+
+According to this lagged plot, we can see that there is no very clear seasonality in this dataset.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Convert the year column to a date object
+# Create a time series object
+ggAcf(ts_data,50) + ggtitle("ACF Plot for Average Number of New Birth")
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+# Convert the year column to a date object
+# Create a time series object
+ggPacf(ts_data, 50, main = 'PACF Plot for Average Number of New Birth')
+```
+
+According to the ACF and PACF plot, we can see that the autocorrelation for small lags is very large and positive, but the autocorrelation drops so fast and I expected there will be more pike close to zero if we have more lags, so we can say that the dataset may have a trend, but not very clear.
+
+The moving average methods will be used for this dataset
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+par(mfrow=(c(3,2)))
+plot(ts_data, main='Original Data')
+plot(ma(ts_data, 12),main="Moving Averages (m=12)")
+plot(ma(ts_data, 26),main="Moving Averages (m=26)")
+plot(ma(ts_data, 39),main="Moving Averages (m=39)")
+plot(ma(ts_data, 51),main="Moving Averages (m=51)")
+```
+
+According to the plots, it is very obvious that where the moving average window is larger, the trend-cycle becomes smoother and captures the main movement of the time series without all of the minor fluctuations. But, even a very larfe moving average window is using, the plot still didn't show any obvious trend or seasonal pattern.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tseries)
+adf.test(ts_data)
+```
+
+According to the ADF test, we can see that the p-value is less than 0.05, which means the ts_data we are using right now is stationary.
+
+
+
+# Fertility Rate
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+fertility <- read_csv('./data/API_SP.DYN.TFRT.IN_DS2_en_csv_v2_4770506.csv', skip=4)
+fertility <- melt(fertility, na.rm=TRUE, id=c('Country Name','Country Code','Indicator Name','Indicator Code'), variable.name = 'Year')
+as.double.factor <- function(x) {as.numeric(levels(x))[x]}
+fertility$Year <- as.double.factor(fertility$Year)
+avg_fertility <- fertility %>%
+  group_by(Year) %>%
+  summarize(avg_value = mean(value))
+```
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+ts_avg_fertility <- ts(avg_fertility$avg_value,star=decimal_date(as.Date("1960-01-01",format = "%Y-%m-%d")),frequency = 1)
+ggAcf(ts_avg_fertility)
+```
+
+The ACF plot shows that the dataset has a very clear trend.
+
+Since the dataset only contain the global annual gdp which means the frequency is 1, so we can not directly use decompose function. So, I am using Moving Average method to find the trend.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+par(mfrow=(c(3,2)))
+plot(ts_avg_fertility, main='Original Data')
+plot(ma(ts_avg_fertility, 3),main="Moving Averages (m=3)")
+plot(ma(ts_avg_fertility, 9),main="Moving Averages (m=9)")
+plot(ma(ts_avg_fertility, 13),main="Moving Averages (m=13)")
+plot(ma(ts_avg_fertility, 21),main="Moving Averages (m=21)")
+```
+
+According to the plot, we can see that the dataset has a very clear decreasing trend.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tseries)
+adf.test(ts_avg_fertility)
+```
+
+The p-value for this dataset is 0.9121 which is way larger than the 0.05, so the dataset is not stationary.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+lm_model_fertility <- lm(ts_avg_fertility ~ time(ts_avg_fertility))
+
+# Detrend the time series by subtracting the fitted values from the linear model
+detrended_ts_fertility <- residuals(lm_model_fertility)
+
+# Plot the original and detrended time series
+par(mfrow = c(2, 1))
+plot(ts_avg_fertility, main = "Original Time Series")
+plot(detrended_ts_fertility, main = "Detrended Time Series")
+```
+
+By using Dtrend method, we can see that there is no very clear trend by looking the plot.
+
+```{r,echo=FALSE, warning=FALSE, message=FALSE}
+plot1 <- ggAcf(ts_avg_fertility, main = "Original ACF plot")
+plot2 <- ggAcf(detrended_ts_fertility, main = "ACF plot after detrending")
+
+# Combine the two plots into a grid
+grid.arrange(plot1, plot2, ncol = 2)
+```
+
+According to the plot, we can see that after detrending, the autocorrelation decrease faster than the original data.
+
